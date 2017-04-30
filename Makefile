@@ -4,7 +4,7 @@ OBJDIR		= obj
 OBJS		= $(addprefix $(OBJDIR)/, $(patsubst %.cpp, %.o, $(wildcard *.cpp)))
 CXX			= g++
 LD			= g++
-LIB			= -lrt -lwiringPi
+LIB			= -lrt
 CFLAGS		= -g -Wall -O2
 
 .PHONY:clean

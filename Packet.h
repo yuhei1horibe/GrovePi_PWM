@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 union Packet_t{
-	uint32_t		data;
+	uint8_t		data[4];
 	struct Field_t{
 		uint32_t	cmd		: 8;
 		uint32_t	pin		: 8;

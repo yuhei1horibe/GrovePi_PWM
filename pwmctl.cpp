@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
-#include <wiringPi.h>
-#include <wiringPiI2C.h>
 #include <iostream>
 #include <unistd.h>
 #include <stdint.h>
@@ -14,12 +12,21 @@
 #include <string.h>
 #include <ctype.h>
 #include <signal.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
+
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "Packet.h"
+#include "i2c-dev.h"
 
 #define	INT_INTERVAL	2	// Interrupt interval[ms]
 #define	RESOL			256	// Resolution
 
 // File handle for I2C
+const char		i2c_dev_name[]	= "/dev/i2c-1";
 const uint32_t	addr_grvPi	= 0x04;
 const uint32_t	addr_disp	= 0x03;
 int32_t			fd_grvPi;	// for GrovePi
@@ -48,8 +55,10 @@ int32_t		grvpi_ch6	= 6;	// GrovePi pin6
 int32_t		ctl_sel		= 1;	// By defaut, select controller 1
 
 
+int32_t pin_mode(const uint8_t pin, const bool bOutput);
 int32_t InitGrovePi();	// Initialization for GrovePi (I2C init)
 int32_t pwm_out(const uint8_t pin, const uint8_t output);
+int32_t lcd_out();
 void tim_main_handler(int32_t signum);
 int32_t TaskStart();
 int32_t mainLoop();
@@ -67,6 +76,9 @@ int32_t main(int32_t argc, char *argv[])
 	if(TaskStart() != 0)
 		return -1;
 
+	// LCD test
+	lcd_out();
+
 	// Controller
 	mainLoop();
 
@@ -78,10 +90,57 @@ int32_t main(int32_t argc, char *argv[])
 // Initialization for GrovePi (I2C init)
 int32_t InitGrovePi()
 {
-	//I2C initialization via wiringPi
-	fd_grvPi	= wiringPiI2CSetup(addr_grvPi);
-	fd_disp		= wiringPiI2CSetup(addr_disp);
+	//I2C initialization for PWM channel
+	if((fd_grvPi = open(i2c_dev_name, O_RDWR)) < 0){
+		std::cout << "Failed to open i2c device." << std::endl;
+		return -1;
+	}
+
+	if(ioctl(fd_grvPi, I2C_SLAVE, addr_grvPi) < 0){
+		std::cout << "Failed to initialize GrovePi." << std::endl;
+		close(fd_grvPi);
+		return -1;
+	}
+
+	//I2C initialization for LCD
+	if((fd_disp = open(i2c_dev_name, O_RDWR)) < 0){
+		std::cout << "Failed to open i2c device." << std::endl;
+		return -1;
+	}
+
+	if(ioctl(fd_disp, I2C_SLAVE, addr_disp) < 0){
+		std::cout << "Failed to initialize LCD." << std::endl;
+		close(fd_grvPi);
+		close(fd_disp);
+		return -1;
+	}
+
+	// Setup pin Mode
+	pin_mode(5, true);
+	pin_mode(6, true);
 	
+	return 0;
+}
+
+// Pin mode setup
+int32_t pin_mode(const uint8_t pin, const bool bOutput)
+{
+	const uint32_t	PIN_MODE	= 5;
+	Packet_t		packet;
+	uint32_t		byteCnt;
+
+	packet.field.cmd	= PIN_MODE;
+	packet.field.pin	= pin;
+	packet.field.data1	= bOutput;
+	packet.field.data2	= 0;
+
+	for(byteCnt = 0; byteCnt < 4; byteCnt++){
+		if(i2c_smbus_write_byte(fd_grvPi, packet.data[byteCnt]) < 0){
+			std::cout << "Write data to GrovePi failed." << std::endl;
+			return -1;
+		}
+	}
+
 	return 0;
 }
 
@@ -90,13 +149,41 @@ int32_t pwm_out(const uint8_t pin, const uint8_t output)
 {
 	const uint32_t	ANALOG_WRITE	= 4;
 	Packet_t		packet;
+	uint32_t		byteCnt;
 
 	packet.field.cmd	= ANALOG_WRITE;
 	packet.field.pin	= pin;
 	packet.field.data1	= output;
 	packet.field.data2	= 0;
 
-	return wiringPiI2CWrite(fd_grvPi, packet.data);
+	for(byteCnt = 0; byteCnt < 4; byteCnt++){
+		if(i2c_smbus_write_byte(fd_grvPi, packet.data[byteCnt]) < 0){
+			std::cout << "Write data to GrovePi failed." << std::endl;
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+// LCD output
+int32_t lcd_out()
+{
+	Packet_t		packet;
+	uint32_t		byteCnt;
+
+	packet.field.cmd	= 'a';
+	packet.field.pin	= 'b';
+	packet.field.data1	= 'c';
+	packet.field.data2	= '\0';
+
+	for(byteCnt = 0; byteCnt < 4; byteCnt++){
+		if(i2c_smbus_write_byte(fd_grvPi, packet.data[byteCnt]) < 0){
+			std::cout << "Write data to GrovePi failed." << std::endl;
+			return -1;
+		}
+	}
+	return 0;
 }
 
 // Timer handler
