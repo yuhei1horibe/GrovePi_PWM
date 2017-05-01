@@ -23,7 +23,7 @@
 #include "i2c-dev.h"
 
 #define	INT_INTERVAL	2	// Interrupt interval[ms]
-#define	RESOL			256	// Resolution
+#define	RESOL			255	// Resolution
 
 // File handle for I2C
 const char		i2c_dev_name[]	= "/dev/i2c-1";
@@ -127,18 +127,15 @@ int32_t pin_mode(const uint8_t pin, const bool bOutput)
 {
 	const uint32_t	PIN_MODE	= 5;
 	Packet_t		packet;
-	uint32_t		byteCnt;
 
 	packet.field.cmd	= PIN_MODE;
 	packet.field.pin	= pin;
 	packet.field.data1	= bOutput;
 	packet.field.data2	= 0;
 
-	for(byteCnt = 0; byteCnt < 4; byteCnt++){
-		if(i2c_smbus_write_byte(fd_grvPi, packet.data[byteCnt]) < 0){
-			std::cout << "Write data to GrovePi failed." << std::endl;
-			return -1;
-		}
+	if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+		std::cout << "Write data to GrovePi failed." << std::endl;
+		return -1;
 	}
 
 	return 0;
@@ -149,18 +146,15 @@ int32_t pwm_out(const uint8_t pin, const uint8_t output)
 {
 	const uint32_t	ANALOG_WRITE	= 4;
 	Packet_t		packet;
-	uint32_t		byteCnt;
 
 	packet.field.cmd	= ANALOG_WRITE;
 	packet.field.pin	= pin;
 	packet.field.data1	= output;
 	packet.field.data2	= 0;
 
-	for(byteCnt = 0; byteCnt < 4; byteCnt++){
-		if(i2c_smbus_write_byte(fd_grvPi, packet.data[byteCnt]) < 0){
-			std::cout << "Write data to GrovePi failed." << std::endl;
-			return -1;
-		}
+	if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+		std::cout << "Write data to GrovePi failed." << std::endl;
+		return -1;
 	}
 
 	return 0;
@@ -170,18 +164,15 @@ int32_t pwm_out(const uint8_t pin, const uint8_t output)
 int32_t lcd_out()
 {
 	Packet_t		packet;
-	uint32_t		byteCnt;
 
 	packet.field.cmd	= 'a';
 	packet.field.pin	= 'b';
 	packet.field.data1	= 'c';
 	packet.field.data2	= '\0';
 
-	for(byteCnt = 0; byteCnt < 4; byteCnt++){
-		if(i2c_smbus_write_byte(fd_grvPi, packet.data[byteCnt]) < 0){
-			std::cout << "Write data to GrovePi failed." << std::endl;
-			return -1;
-		}
+	if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+		std::cout << "Write data to GrovePi failed." << std::endl;
+		return -1;
 	}
 	return 0;
 }
@@ -198,7 +189,7 @@ void tim_main_handler(int32_t signum)
 
 	// Change output
 	pwm_out(5, pwmCnt1);
-	pwm_out(6, pwmCnt1);
+	pwm_out(6, pwmCnt2);
 
 	// Calculate PWM output for both controller 1 and 2
 	if((Notch1 <= 5) && (Notch1 > -6)){
@@ -232,7 +223,7 @@ int32_t TaskStart()
 	itval.it_value.tv_nsec	= 0;
 
 	itval.it_interval.tv_sec	= 0;
-	itval.it_interval.tv_nsec	= INT_INTERVAL * 1000000;//割り込み周期
+	itval.it_interval.tv_nsec	= INT_INTERVAL * 10000000;	//割り込み周期
 
 	// Create timer handler
 	if(timer_create(CLOCK_REALTIME, NULL, &tid) != 0){
