@@ -20,7 +20,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include "Packet.h"
-#include "i2c-dev.h"
+//#include "i2c-dev.h"
 
 #define	INT_INTERVAL	2	// Interrupt interval[ms]
 #define	RESOL			255	// Resolution
@@ -133,7 +133,22 @@ int32_t pin_mode(const uint8_t pin, const bool bOutput)
 	packet.field.data1	= bOutput;
 	packet.field.data2	= 0;
 
-	if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+	i2c_smbus_ioctl_data	ioctlData;
+	i2c_smbus_data			smbus_data;
+
+	smbus_data.block[0]	= sizeof(packet);
+	smbus_data.block[1]	= packet.data[0];
+	smbus_data.block[2]	= packet.data[1];
+	smbus_data.block[3]	= packet.data[2];
+	smbus_data.block[4]	= packet.data[3];
+
+	ioctlData.read_write	= I2C_SMBUS_WRITE;
+	ioctlData.size			= I2C_SMBUS_I2C_BLOCK_DATA;
+	ioctlData.command		= 0;
+	ioctlData.data			= &smbus_data;
+
+	//if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+	if(ioctl(fd_grvPi, I2C_SMBUS, (uint32_t)(&ioctlData)) < 0){
 		std::cout << "Write data to GrovePi failed." << std::endl;
 		return -1;
 	}
@@ -152,7 +167,21 @@ int32_t pwm_out(const uint8_t pin, const uint8_t output)
 	packet.field.data1	= output;
 	packet.field.data2	= 0;
 
-	if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+	i2c_smbus_ioctl_data	ioctlData;
+	i2c_smbus_data			smbus_data;
+	smbus_data.block[0]	= sizeof(packet);
+	smbus_data.block[1]	= packet.data[0];
+	smbus_data.block[2]	= packet.data[1];
+	smbus_data.block[3]	= packet.data[2];
+	smbus_data.block[4]	= packet.data[3];
+
+	ioctlData.read_write	= I2C_SMBUS_WRITE;
+	ioctlData.size			= I2C_SMBUS_I2C_BLOCK_DATA;
+	ioctlData.command		= 0;
+	ioctlData.data			= &smbus_data;
+
+	//if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+	if(ioctl(fd_grvPi, I2C_SMBUS, (uint32_t)(&ioctlData)) < 0){
 		std::cout << "Write data to GrovePi failed." << std::endl;
 		return -1;
 	}
@@ -163,17 +192,17 @@ int32_t pwm_out(const uint8_t pin, const uint8_t output)
 // LCD output
 int32_t lcd_out()
 {
-	Packet_t		packet;
+	//Packet_t		packet;
 
-	packet.field.cmd	= 'a';
-	packet.field.pin	= 'b';
-	packet.field.data1	= 'c';
-	packet.field.data2	= '\0';
+	//packet.field.cmd	= 'a';
+	//packet.field.pin	= 'b';
+	//packet.field.data1	= 'c';
+	//packet.field.data2	= '\0';
 
-	if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
-		std::cout << "Write data to GrovePi failed." << std::endl;
-		return -1;
-	}
+	//if(i2c_smbus_write_block_data(fd_grvPi, 1, sizeof(packet.data), packet.data) < 0){
+	//	std::cout << "Write data to GrovePi failed." << std::endl;
+	//	return -1;
+	//}
 	return 0;
 }
 
